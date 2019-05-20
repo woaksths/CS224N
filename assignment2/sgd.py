@@ -86,7 +86,8 @@ def sgd(f, x0, step, iterations, postprocessing=None, useSaved=False,
 
         loss = None
         ### YOUR CODE HERE
-
+        loss, gradient = f(x)
+        x = x - step*gradient
         ### END YOUR CODE
 
         x = postprocessing(x)
@@ -108,7 +109,6 @@ def sgd(f, x0, step, iterations, postprocessing=None, useSaved=False,
 
 def sanity_check():
     quad = lambda x: (np.sum(x ** 2), x * 2)
-
     print("Running sanity checks...")
     t1 = sgd(quad, 0.5, 0.01, 1000, PRINT_EVERY=100)
     print("test 1 result:", t1)
