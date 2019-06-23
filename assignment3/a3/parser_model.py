@@ -13,10 +13,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class ParserModel(nn.Module):
     """ Feedforward neural network with an embedding layer and single hidden layer.
-    The ParserModel will predict which transition should be applied to a
-    given partial parse configuration.
+    The ParserModel will predict which transition should be applied to a given partial parse configuration.
 
     PyTorch Notes:
         - Note that "ParserModel" is a subclass of the "nn.Module" class. In PyTorch all neural networks
@@ -49,6 +49,7 @@ class ParserModel(nn.Module):
         self.pretrained_embeddings = nn.Embedding(embeddings.shape[0], self.embed_size)
         self.pretrained_embeddings.weight = nn.Parameter(torch.tensor(embeddings))
 
+
         ### YOUR CODE HERE (~5 Lines)
         ### TODO:
         ###     1) Construct `self.embed_to_hidden` linear layer, initializing the weight matrix
@@ -72,7 +73,11 @@ class ParserModel(nn.Module):
         ###     Xavier Init: https://pytorch.org/docs/stable/nn.html#torch.nn.init.xavier_uniform_
         ###     Dropout: https://pytorch.org/docs/stable/nn.html#torch.nn.Dropout
 
-
+        self.embed_to_hidden = nn.Linear(self.embed_size*n_features, self.hidden_size)
+        nn.init.xavier_uniform_(self.embed_to_hidden.weight, gain=1.0)
+        self.dropout = nn.Dropout(p=dropout_prob)
+        self.hidden_to_logits = nn.Linear(self.hidden_size, self.n_classes)
+        nn.init.xavier_uniform_(self.hidden_to_logits.weight, gain=1.0)
         ### END YOUR CODE
 
     def embedding_lookup(self, t):
@@ -104,6 +109,8 @@ class ParserModel(nn.Module):
         ###     Embedding Layer: https://pytorch.org/docs/stable/nn.html#torch.nn.Embedding
         ###     View: https://pytorch.org/docs/stable/tensors.html#torch.Tensor.view
 
+        x = self.pretrained_embeddings(t)
+        x = x.view(x.size()[0], -1)
 
         ### END YOUR CODE
         return x
@@ -142,6 +149,10 @@ class ParserModel(nn.Module):
         ### Please see the following docs for support:
         ###     ReLU: https://pytorch.org/docs/stable/nn.html?highlight=relu#torch.nn.functional.relu
 
+        embeddings = self.embedding_lookup(t)
+        out = F.relu(self.embed_to_hidden(embeddings))
+        out = self.dropout(out)
+        logits = self.hidden_to_logits(out)
 
         ### END YOUR CODE
         return logits
