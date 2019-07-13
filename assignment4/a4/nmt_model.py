@@ -72,10 +72,17 @@ class NMT(nn.Module):
         ###         https://pytorch.org/docs/stable/nn.html#torch.nn.Linear
         ###     Dropout Layer:
         ###         https://pytorch.org/docs/stable/nn.html#torch.nn.Dropout
-
-
+        self.encoder = nn.LSTM(embed_size, self.hidden_size, bidirectional=True)
+        self.decoder = nn.LSTMCell(embed_size + self.hidden_size, self.hidden_size)
+        # sometimes take the attention output from the previous step,
+        # and also feed it into the decoder along with usual decoder input.
+        self.h_projection = nn.Linear(self.hidden_size*2, self.hidden_size, bias=False)
+        self.c_projection = nn.Linear(self.hidden_size*2, self.hidden_size, bias=False)
+        self.att_projection = nn.Linear(self.hidden_size*2, self.hidden_size, bias=False)
+        self.combined_output_projection = nn.Linear(self.hidden_size*3, self.hidden_size, bias=False)
+        self.target_vocab_projection = nn.Linear(self.hidden_size, len(self.vocab.tgt), bias=False)
+        self.dropout = nn.Dropout(p=self.dropout_rate)
         ### END YOUR CODE
-
 
     def forward(self, source: List[List[str]], target: List[List[str]]) -> torch.Tensor:
         """ Take a mini-batch of source and target sentences, compute the log-likelihood of
