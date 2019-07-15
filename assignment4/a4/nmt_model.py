@@ -236,7 +236,7 @@ class NMT(nn.Module):
         ### Note:
         ###    - When using the squeeze() function make sure to specify the dimension you want to squeeze
         ###      over. Otherwise, you will remove the batch dimension accidentally, if batch_size = 1.
-        ###   
+        ###
         ### Use the following docs to implement this functionality:
         ###     Zeros Tensor:
         ###         https://pytorch.org/docs/stable/torch.html#torch.zeros
@@ -249,6 +249,15 @@ class NMT(nn.Module):
         ###     Tensor Stacking:
         ###         https://pytorch.org/docs/stable/torch.html#torch.stack
 
+        enc_hiddens_proj = self.att_projection(enc_hiddens)
+        Y = self.model_embeddings.target(target_padded)
+        for y_t in torch.split(Y, 1):
+            y_t = torch.squeeze(y_t)
+            Ybar_t = torch.cat((y_t, o_prev), 1)
+            dec_state, combined_output, e_t = self.step(Ybar_t, dec_state, enc_hiddens, enc_hiddens_proj, enc_masks)
+            combined_outputs.append(combined_output)
+            o_prev = combined_output
+        combined_outputs = torch.stack(combined_outputs)
 
         ### END YOUR CODE
 
