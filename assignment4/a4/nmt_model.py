@@ -160,6 +160,7 @@ class NMT(nn.Module):
         ###             Apply the c_projection layer to this in order to compute init_decoder_cell.
         ###             This is c_0^{dec} in the PDF. Here b = batch size, h = hidden size
         ###
+        ### https://simonjisu.github.io/nlp/2018/07/05/packedsequence.html pad_packed_sequence
         ### See the following docs, as you may need to use some of the following functions in your implementation:
         ###     Pack the padded sequence X before passing to the encoder:
         ###         https://pytorch.org/docs/stable/nn.html#torch.nn.utils.rnn.pack_padded_sequence
@@ -170,9 +171,17 @@ class NMT(nn.Module):
         ###     Tensor Permute:
         ###         https://pytorch.org/docs/stable/tensors.html#torch.Tensor.permute
 
+        X = self.model_embeddings.source(source_padded)
+        padded_sequence = pack_padded_sequence(X, source_lengths)
+        output, (hn, cn) = self.encoder(padded_sequence)
+        enc_hiddens = pad_packed_sequence(output, batch_first=True)[0]
+        concatenated_hn = torch.cat((hn[0], hn[1]), 1)
+        init_decoder_hidden = self.h_projection(concatenated_hn)
+        concatenated_cn = torch.cat((cn[0], cn[1]), 1)
+        init_decoder_cell = self.c_projection(concatenated_cn)
+        dec_init_state = (init_decoder_hidden, init_decoder_cell)
 
         ### END YOUR CODE
-
         return enc_hiddens, dec_init_state
 
 
