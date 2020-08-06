@@ -142,7 +142,6 @@ def train(args: Dict):
     print('use device: %s' % device, file=sys.stderr)
 
     model = model.to(device)
-
     optimizer = torch.optim.Adam(model.parameters(), lr=float(args['--lr']))
 
     num_trial = 0
@@ -321,8 +320,8 @@ def main():
     """
     args = docopt(__doc__)
 
-    # Check pytorch version
-    assert(torch.__version__ == "1.0.0"), "Please update your installation of PyTorch. You have {} and you should have version 1.0.0".format(torch.__version__)
+#     # Check pytorch version
+#     assert(torch.__version__ == "1.0.0"), "Please update your installation of PyTorch. You have {} and you should have version 1.0.0".format(torch.__version__)
 
     # seed the random number generators
     seed = int(args['--seed'])

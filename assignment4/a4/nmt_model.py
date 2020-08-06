@@ -173,14 +173,14 @@ class NMT(nn.Module):
 
         X = self.model_embeddings.source(source_padded)
         padded_sequence = pack_padded_sequence(X, source_lengths)
-        output, (hn, cn) = self.encoder(padded_sequence)
-        enc_hiddens = pad_packed_sequence(output, batch_first=True)[0]
-        concatenated_hn = torch.cat((hn[0], hn[1]), 1)
-        init_decoder_hidden = self.h_projection(concatenated_hn)
-        concatenated_cn = torch.cat((cn[0], cn[1]), 1)
-        init_decoder_cell = self.c_projection(concatenated_cn)
+        enc_hiddens, (h_n, c_n) = self.encoder(padded_sequence)
+        enc_hiddens, _ = pad_packed_sequence(enc_hiddens)
+        enc_hiddens = enc_hiddens.transpose(0,1)
+        h_n = torch.cat((h_n[0], h_n[1]), -1)
+        init_decoder_hidden = self.h_projection(h_n)
+        c_n = torch.cat((c_n[0], c_n[1]), -1)
+        init_decoder_cell = self.c_projection(c_n)
         dec_init_state = (init_decoder_hidden, init_decoder_cell)
-
         ### END YOUR CODE
         return enc_hiddens, dec_init_state
 
@@ -250,10 +250,10 @@ class NMT(nn.Module):
         ###         https://pytorch.org/docs/stable/torch.html#torch.stack
 
         enc_hiddens_proj = self.att_projection(enc_hiddens)
-        Y = self.model_embeddings.target(target_padded)
+        Y = self.model_embeddings.target(target_padded)  # max_sentence_length, batch, embedding_dim 
         for y_t in torch.split(Y, 1):
-            y_t = torch.squeeze(y_t)
-            Ybar_t = torch.cat((y_t, o_prev), 1)
+            y_t = y_t.squeeze(0) # batch, hidden
+            Ybar_t = torch.cat((y_t, o_prev), -1) # batch, 2*hidden
             dec_state, combined_output, e_t = self.step(Ybar_t, dec_state, enc_hiddens, enc_hiddens_proj, enc_masks)
             combined_outputs.append(combined_output)
             o_prev = combined_output
@@ -318,10 +318,13 @@ class NMT(nn.Module):
 
         dec_state = self.decoder(Ybar_t, dec_state)
         dec_hidden, dec_cell = dec_state
-        e_t = torch.bmm(enc_hiddens_proj, dec_hidden.unsqueeze(2)).squeeze(2)
-
+        # dec_hidden -> batch, hidden
+        # dec_cell -> batch, hidden
+        # enc_hiddens_proj -> batch, src_len, hidden 
+        # e_t-> batch, src_len
+        e_t = torch.bmm(dec_hidden.unsqueeze(1),enc_hiddens_proj.transpose(1,2)).squeeze(1)
+        
         ### END YOUR CODE
-
         # Set e_t to -inf where enc_masks has 1
         if enc_masks is not None:
             e_t.data.masked_fill_(enc_masks.byte(), -float('inf'))
@@ -335,7 +338,6 @@ class NMT(nn.Module):
         ###           - alpha_t is shape (b, src_len)
         ###           - enc_hiddens is shape (b, src_len, 2h)
         ###           - a_t should be shape (b, 2h)
-        ###           - You will need to do some squeezing and unsqueezing.
         ###     Note: b = batch size, src_len = maximum source length, h = hidden size.
         ###
         ###     3. Concatenate dec_hidden with a_t to compute tensor U_t
@@ -353,15 +355,14 @@ class NMT(nn.Module):
         ###         https://pytorch.org/docs/stable/torch.html#torch.cat
         ###     Tanh:
         ###         https://pytorch.org/docs/stable/torch.html#torch.tanh
-        
-        alpha_t = F.softmax(e_t, dim=1)
+        alpha_t = F.softmax(e_t, dim=-1)
+        # alpha_t -> batch, src_len 
+        # enc_hiddens -> batch, src_len, 2*hidden_size
         a_t = torch.bmm(alpha_t.unsqueeze(1), enc_hiddens).squeeze(1)
         U_t = torch.cat((a_t, dec_hidden), 1)
         V_t = self.combined_output_projection(U_t)
         O_t = self.dropout(F.tanh(V_t))
-
         ### END YOUR CODE
-
         combined_output = O_t
         return dec_state, combined_output, e_t
 
@@ -432,7 +433,7 @@ class NMT(nn.Module):
             contiuating_hyp_scores = (hyp_scores.unsqueeze(1).expand_as(log_p_t) + log_p_t).view(-1)
             top_cand_hyp_scores, top_cand_hyp_pos = torch.topk(contiuating_hyp_scores, k=live_hyp_num)
 
-            prev_hyp_ids = top_cand_hyp_pos / len(self.vocab.tgt)
+            prev_hyp_ids = top_cand_hyp_pos // len(self.vocab.tgt)
             hyp_word_ids = top_cand_hyp_pos % len(self.vocab.tgt)
 
             new_hypotheses = []

@@ -1,0 +1,6 @@
+torch == 1.0.0
+docopt
+tqdm == 4.29.1
+scipy
+numpy
+nltk

@@ -123,7 +123,7 @@ class VocabEntry(object):
         @param device: device on which to load the tesnor, i.e. CPU or GPU
 
         @returns sents_var: tensor of (max_sentence_length, batch_size)
-        """
+        """       
         word_ids = self.words2indices(sents)
         sents_t = pad_sents(word_ids, self['<pad>'])
         sents_var = torch.tensor(sents_t, dtype=torch.long, device=device)
